@@ -3,14 +3,24 @@ using System.Collections.Generic;
 using System.Timers;
 using UnityEngine;
 
+/**
+ * Author: Arthur Clay Odom
+ */
+
 public class PlayerController : MonoBehaviour
 {
     public float moveSpeed = 5;
+    public float topMoveSpeed = 100;
+    public float startBoost;
     public float climbSpeed;
 
     public float dashSpeed;
     public float dashDrag;
     public float dashBleedOff = 10f;
+
+    public float movingFriction = 1f;
+    public float stoppingFriction = 1f;
+    public float slidingFriction;
 
     [Range(0, 1)]
     public float lerpHorizontalMovement = 0.6f;
@@ -35,6 +45,7 @@ public class PlayerController : MonoBehaviour
     private bool dash = true;
     private bool dashing = false;
     private bool grab = false;
+    private bool slide = false; 
 
     //private Timer grabTime;
 
@@ -65,8 +76,21 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        Vector2 newVelocity = new Vector2(Input.GetAxis("Horizontal") * moveSpeed * Time.fixedDeltaTime, rb.velocity.y);
+        //Housekeeping
+        slide = false;
 
+        //Stops the wind-up time to movement
+        Vector2 newVelocity = new Vector2(0, rb.velocity.y);
+        if (rb.velocity.x != 0)
+        {
+            newVelocity = new Vector2(Input.GetAxis("Horizontal") * moveSpeed * Time.fixedDeltaTime, rb.velocity.y);
+        }
+        else if (Input.GetAxis("Horizontal") != 0)
+        {
+            newVelocity = new Vector2(Input.GetAxis("Horizontal") * moveSpeed * Time.fixedDeltaTime + (Mathf.Sign(Input.GetAxis("Horizontal")) * startBoost), rb.velocity.y);
+        }
+
+        //Resets the dash
         if (feetCollider.IsTouchingLayers())
         {
             dash = true;
@@ -80,7 +104,7 @@ public class PlayerController : MonoBehaviour
             newVelocity = new Vector2(newVelocity.x, 0);
             newVelocity += Vector2.up * jumpVelocity;
         }
-        else if (Input.GetButtonDown("Dash") && dash && !dashing)
+        else if (Input.GetButtonDown("Dash") && dash && !dashing && (Input.GetAxis("Vertical") != 0 || Input.GetAxis("Horizontal") != 0))
         {
             Debug.Log("Dash");
             dash = false;
@@ -90,22 +114,20 @@ public class PlayerController : MonoBehaviour
             //movementumTracking = new Vector2(Input.GetAxis("Vertical"), Input.GetAxis("Horizontal")).normalized * dashSpeed;
             rb.drag = dashDrag;
         }
-        else if (Input.GetButton("Grab") && (leftGrab.IsTouchingLayers() || rightGrab.IsTouchingLayers()))
-        {
-            grab = true;
-
-            movementumTracking = new Vector2(0, 0);
-            newVelocity = new Vector2(0, Input.GetAxis("Vertical") * climbSpeed * Time.fixedDeltaTime);
-        }
         else if (Input.GetButtonDown("Jump") && leftWallKick.IsTouchingLayers())
         {
             newVelocity = new Vector2(wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
-            movementumTracking += new Vector2(System.Math.Min(newVelocity.x, -wallKickCarryOver) + (wallKickHorizontalVelocity), 0);
+            //movementumTracking += new Vector2(System.Math.Min(newVelocity.x, -wallKickCarryOver) + (wallKickHorizontalVelocity), 0);
         }
         else if (Input.GetButtonDown("Jump") && rightWallKick.IsTouchingLayers())
         {
             newVelocity = new Vector2(wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
-            movementumTracking += new Vector2(-System.Math.Max(newVelocity.x, wallKickCarryOver) - (wallKickHorizontalVelocity), 0);
+            //movementumTracking += new Vector2(-System.Math.Max(newVelocity.x, wallKickCarryOver) - (wallKickHorizontalVelocity), 0);
+        }
+        else if (Input.GetButton("Slide"))
+        {
+            newVelocity = new Vector2(rb.velocity.x - Mathf.Sign(rb.velocity.x) * slidingFriction, rb.velocity.y);
+            slide = true;
         }
 
         //If we're falling, add fallMultiplier to gravity
@@ -131,20 +153,64 @@ public class PlayerController : MonoBehaviour
                 rb.drag = 0;
             }
         }
-        else
+        else if (!slide)
         {
-            //Smooth out the horizontal movement
-            rb.velocity = new Vector2(Mathf.Lerp(rb.velocity.x * Time.fixedDeltaTime, newVelocity.x, lerpHorizontalMovement), rb.velocity.y * Time.fixedDeltaTime + newVelocity.y) /*+ movementumTracking*/;
+            //Friction Calculations
+            float xWFriction = 0f;
+            if (rb.velocity.x < topMoveSpeed || rb.velocity.x > -topMoveSpeed) {
+                if (rb.velocity.x + newVelocity.x > 0)
+                {
+                    if (rb.velocity.x + newVelocity.x - movingFriction > 0)
+                    {
+                        xWFriction = rb.velocity.x + newVelocity.x - movingFriction;
+                    }
+                }
+                else if (rb.velocity.x + newVelocity.x < 0)
+                {
+                    if (rb.velocity.x + newVelocity.x + movingFriction < 0)
+                    {
+                        xWFriction = rb.velocity.x + newVelocity.x + movingFriction;
+                    }
+                }
+            }
+            else //Just cut the player's input from the friction
+            {
+                if (rb.velocity.x > 0)
+                {
+                    if (rb.velocity.x - movingFriction > 0 && !(rb.velocity.x <= movingFriction))
+                    {
+                        xWFriction = rb.velocity.x - movingFriction;
+                    }
+                }
+                else if (rb.velocity.x + newVelocity.x < 0)
+                {
+                    if (rb.velocity.x + movingFriction < 0 && !(rb.velocity.x >= -movingFriction))
+                    {
+                        xWFriction = rb.velocity.x + movingFriction;
+                    }
+                }
+            }
+
+            if (Input.GetAxis("Horizontal") == 0 && rb.velocity.x != 0 && !(Mathf.Abs(rb.velocity.x) - Mathf.Abs(stoppingFriction) <= 0))
+            {
+                Debug.Log("Applied Stopping Friction: " + Time.fixedTime);
+                xWFriction -= Mathf.Sign(xWFriction) * stoppingFriction;
+            }
+
+            xWFriction = Mathf.Sign(xWFriction) * Mathf.Min(Mathf.Abs(xWFriction), topMoveSpeed);
+
+            //Final Movement Calculations
+            rb.velocity = new Vector2(xWFriction, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y) /*+ movementumTracking*/;
         }
 
-        if ((movementumTracking.x > 0 || movementumTracking.y > 0) && movementumTracking.sqrMagnitude > 0.2f)
+      /*if ((movementumTracking.x > 0 || movementumTracking.y > 0) && movementumTracking.sqrMagnitude > 0.2f)
         {
             movementumTracking = new Vector2(Mathf.Lerp(movementumTracking.x, 0, 0.5f * Time.fixedDeltaTime), Mathf.Lerp(movementumTracking.y, 0, 0.5f * Time.fixedDeltaTime));
         }
         else if (movementumTracking.sqrMagnitude > 0.2f)
         {
             movementumTracking = new Vector2(0, 0);
-        }
+        }*/
     }
 
     private Vector2 jump(Vector2 newVelocity)
