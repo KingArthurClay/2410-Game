@@ -12,7 +12,7 @@ public class PlayerController : MonoBehaviour
     public float moveSpeed = 5;
     public float topMoveSpeed = 100;
     public float startBoost;
-    public float climbSpeed;
+    public float boostPoint = 1;
 
     public float dashSpeed;
     public float dashDrag;
@@ -20,7 +20,7 @@ public class PlayerController : MonoBehaviour
 
     public float movingFriction = 1f;
     public float stoppingFriction = 1f;
-    public float slidingFriction;
+    public float slidingFriction = 0.45f;
 
     [Range(0, 1)]
     public float lerpHorizontalMovement = 0.6f;
@@ -41,15 +41,15 @@ public class PlayerController : MonoBehaviour
     public float fallMultiplier = 2.5f;
     // Shortens a jump from a shorter input
     public float lowJumpMultiplier = 2.0f;
+    // Makes WallSliding Slower
+    public float wallSlideMultiplier = .25f;
 
     private bool dash = true;
     private bool dashing = false;
-    private bool grab = false;
+    private bool wallSliding = false;
     private bool slide = false; 
 
     //private Timer grabTime;
-
-    private Vector2 movementumTracking = new Vector2(0, 0);
 
 #pragma warning disable 0649
     [SerializeField]
@@ -76,16 +76,18 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        //Housekeeping
-        slide = false;
+        //Sliding Housekeeping
+        if (slide && !((Input.GetButton("Slide") || Input.GetAxis("Vertical") < 0))) {
+            slide = false;
+        }
 
         //Stops the wind-up time to movement
         Vector2 newVelocity = new Vector2(0, rb.velocity.y);
-        if (rb.velocity.x != 0)
+        if (!slide && !(Mathf.Abs(rb.velocity.x) < boostPoint))
         {
             newVelocity = new Vector2(Input.GetAxis("Horizontal") * moveSpeed * Time.fixedDeltaTime, rb.velocity.y);
         }
-        else if (Input.GetAxis("Horizontal") != 0)
+        else if (!slide && Input.GetAxis("Horizontal") != 0)
         {
             newVelocity = new Vector2(Input.GetAxis("Horizontal") * moveSpeed * Time.fixedDeltaTime + (Mathf.Sign(Input.GetAxis("Horizontal")) * startBoost), rb.velocity.y);
         }
@@ -97,54 +99,102 @@ public class PlayerController : MonoBehaviour
         }
 
         if (Input.GetButtonDown("Jump") && feetCollider.IsTouchingLayers())
-        {
-            //Debug.Log("Jump");
-            //rb.velocity = new Vector2(rb.velocity.x, 0);
+        {   //Jumping
 
             newVelocity = new Vector2(newVelocity.x, 0);
             newVelocity += Vector2.up * jumpVelocity;
         }
         else if (Input.GetButtonDown("Dash") && dash && !dashing && (Input.GetAxis("Vertical") != 0 || Input.GetAxis("Horizontal") != 0))
-        {
-            Debug.Log("Dash");
+        {   //Dashing
             dash = false;
             dashing = true;
 
-            rb.velocity = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized * dashSpeed;
-            //movementumTracking = new Vector2(Input.GetAxis("Vertical"), Input.GetAxis("Horizontal")).normalized * dashSpeed;
+            newVelocity += new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized * dashSpeed;
             rb.drag = dashDrag;
         }
         else if (Input.GetButtonDown("Jump") && leftWallKick.IsTouchingLayers())
-        {
-            newVelocity = new Vector2(wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
-            //movementumTracking += new Vector2(System.Math.Min(newVelocity.x, -wallKickCarryOver) + (wallKickHorizontalVelocity), 0);
+        {   //Wall Kicks to the Right
+            if (wallSliding)
+            {
+                //Debug.Log("Jumped off to the right");
+                newVelocity = new Vector2(wallKickHorizontalVelocity, wallKickVerticalVelocity);
+            }
+            else
+            {
+                newVelocity = new Vector2(wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
+            }
         }
         else if (Input.GetButtonDown("Jump") && rightWallKick.IsTouchingLayers())
-        {
-            newVelocity = new Vector2(wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
-            //movementumTracking += new Vector2(-System.Math.Max(newVelocity.x, wallKickCarryOver) - (wallKickHorizontalVelocity), 0);
+        {   //Wall Kicks to the Left
+            if (wallSliding)
+            {
+                //Debug.Log("Jumped off to the left");
+                newVelocity = new Vector2(wallKickHorizontalVelocity, wallKickVerticalVelocity);
+            }
+            else
+            {
+                newVelocity = new Vector2(-wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
+            }
         }
-        else if (Input.GetButton("Slide"))
-        {
-            newVelocity = new Vector2(rb.velocity.x - Mathf.Sign(rb.velocity.x) * slidingFriction, rb.velocity.y);
+        else if ((Input.GetButton("Slide") || Input.GetAxis("Vertical") < 0) && Mathf.Abs(rb.velocity.x) > 1)
+        {   //Sliding
+            newVelocity = new Vector2(0, 0);
+
+            if (wallSliding)
+            {
+                //Debug.Log("Slid out of wallSliding");
+                wallSliding = false;
+            }
+
+            //Slide disables normal input
+            if (feetCollider.IsTouchingLayers())
+            {
+                newVelocity = new Vector2(-Mathf.Sign(rb.velocity.x) * slidingFriction, rb.velocity.y);
+            }
+            else
+            {
+                newVelocity = new Vector2(0, rb.velocity.y);
+            }
+
             slide = true;
+        }
+        else if (!slide && !wallSliding && leftGrab.IsTouchingLayers() || rightGrab.IsTouchingLayers()) //No wallSlide if the player is sliding
+        {   //Wall Sliding
+
+            //We Only want to slide on a wall if the player pushes against it
+            if (leftGrab.IsTouchingLayers() && Input.GetAxis("Horizontal") < 0)
+            {
+                //Debug.Log("WallSliding");
+                newVelocity.y = 0;
+                wallSliding = true;
+            }
+            else if (rightGrab.IsTouchingLayers() && Input.GetAxis("Horizontal") > 0)
+            {
+                //Debug.Log("WallSliding");
+                newVelocity.y = 0;
+                wallSliding = true;
+            }
         }
 
         //If we're falling, add fallMultiplier to gravity
-        if (!grab && newVelocity.y < 0)
+        if (!wallSliding && newVelocity.y < 0)
         {
             newVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
         } //If we've stopped holding the button, increase gravity
-        else if (!grab && newVelocity.y > 0 && !Input.GetButton("Jump"))
+        else if (!wallSliding && newVelocity.y > 0 && !Input.GetButton("Jump"))
         {
             newVelocity += Vector2.up * Physics2D.gravity.y * (lowJumpMultiplier - 1) * Time.fixedDeltaTime;
+        }
+        else if (wallSliding)
+        {   //If we'er wallSliding, act like it
+            newVelocity += Vector2.up * Physics2D.gravity.y * wallSlideMultiplier * Time.fixedDeltaTime;
         }
         else
         { //'Cause Unity won't do it for us
             newVelocity += Vector2.up * Physics2D.gravity.y * Time.fixedDeltaTime;
         }
 
-        if (dashing == true)
+        if (dashing == true) //Handles Dashing Drag and Drab bleed-off
         {
             rb.drag -= dashBleedOff;
             if (rb.drag <= 0)
@@ -152,12 +202,18 @@ public class PlayerController : MonoBehaviour
                 dashing = false;
                 rb.drag = 0;
             }
+
+            rb.velocity = newVelocity;
         }
-        else if (!slide)
+        else if (slide) //If we're sliding, we've done this already
+        {
+            rb.velocity = new Vector2(rb.velocity.x + newVelocity.x, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y);
+        }
+        else if (!slide && Input.GetAxis("Horizontal") != 0) //Moving Friction Calculations
         {
             //Friction Calculations
             float xWFriction = 0f;
-            if (rb.velocity.x < topMoveSpeed || rb.velocity.x > -topMoveSpeed) {
+            if (rb.velocity.x < topMoveSpeed || rb.velocity.x > -topMoveSpeed) { //If we're not going to exceed our top move speed
                 if (rb.velocity.x + newVelocity.x > 0)
                 {
                     if (rb.velocity.x + newVelocity.x - movingFriction > 0)
@@ -191,9 +247,20 @@ public class PlayerController : MonoBehaviour
                 }
             }
 
+            xWFriction = Mathf.Sign(xWFriction) * Mathf.Min(Mathf.Abs(xWFriction), topMoveSpeed);
+
+            //Final Movement Calculations
+            rb.velocity = new Vector2(xWFriction, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y) /*+ movementumTracking*/;
+        }
+        else if (!slide) //Stopped Friction Calculations
+        {
+            float xWFriction = 0;
+
             if (Input.GetAxis("Horizontal") == 0 && rb.velocity.x != 0 && !(Mathf.Abs(rb.velocity.x) - Mathf.Abs(stoppingFriction) <= 0))
             {
-                Debug.Log("Applied Stopping Friction: " + Time.fixedTime);
+                xWFriction = rb.velocity.x; 
+
+              ////Debug.Log("Applied Stopping Friction: " + Time.fixedTime);
                 xWFriction -= Mathf.Sign(xWFriction) * stoppingFriction;
             }
 
@@ -202,15 +269,14 @@ public class PlayerController : MonoBehaviour
             //Final Movement Calculations
             rb.velocity = new Vector2(xWFriction, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y) /*+ movementumTracking*/;
         }
-
-      /*if ((movementumTracking.x > 0 || movementumTracking.y > 0) && movementumTracking.sqrMagnitude > 0.2f)
+        
+        //Housekeeping check to make sure wallsliding doesn't happen forever
+        if (wallSliding && !leftGrab.IsTouchingLayers() && !rightGrab.IsTouchingLayers())
         {
-            movementumTracking = new Vector2(Mathf.Lerp(movementumTracking.x, 0, 0.5f * Time.fixedDeltaTime), Mathf.Lerp(movementumTracking.y, 0, 0.5f * Time.fixedDeltaTime));
+            //Debug.Log("Not Wallsliding!");
+            wallSliding = false;
         }
-        else if (movementumTracking.sqrMagnitude > 0.2f)
-        {
-            movementumTracking = new Vector2(0, 0);
-        }*/
+
     }
 
     private Vector2 jump(Vector2 newVelocity)
@@ -226,12 +292,10 @@ public class PlayerController : MonoBehaviour
         if (left)
         {
             newVelocity += new Vector2(wallKickHorizontalVelocity, wallKickVerticalVelocity);
-            movementumTracking += new Vector2(System.Math.Min(newVelocity.x, -wallKickCarryOver) + (wallKickHorizontalVelocity), 0);
         }
         else
         {
             newVelocity += new Vector2(wallKickHorizontalVelocity, wallKickVerticalVelocity);
-            movementumTracking += new Vector2(-System.Math.Max(newVelocity.x, wallKickCarryOver) - (wallKickHorizontalVelocity), 0);
         }
 
         return newVelocity;
