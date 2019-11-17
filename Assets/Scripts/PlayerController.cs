@@ -129,7 +129,7 @@ public class PlayerController : MonoBehaviour
             if (wallSliding)
             {
                 //Debug.Log("Jumped off to the left");
-                newVelocity = new Vector2(wallKickHorizontalVelocity, wallKickVerticalVelocity);
+                newVelocity = new Vector2(-wallKickHorizontalVelocity, wallKickVerticalVelocity);
             }
             else
             {
