@@ -10,19 +10,19 @@ using UnityEngine.SceneManagement;
 public class LevelTransition : MonoBehaviour
 {
 
-    private Collider2D collider;
+    private Collider2D theCollider;
 
     public string target = "PlayGround";
 
     public void Start()
     {
-        collider = gameObject.GetComponent<Collider2D>();
+        theCollider = gameObject.GetComponent<Collider2D>();
     }
 
     public void Update()
     {
         
-        if (collider.IsTouching(GameObject.FindGameObjectWithTag("Player").GetComponent<CircleCollider2D>()) && Input.GetButton("Submit"))
+        if (theCollider.IsTouching(GameObject.FindGameObjectWithTag("Player").GetComponent<CircleCollider2D>()) && Input.GetButton("Submit"))
         {
             LevelManager.Instance.switchScene(target);
         }

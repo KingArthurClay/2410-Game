@@ -28,7 +28,8 @@ public class SpawnRespawnHandler : Singleton<SpawnRespawnHandler>
             }
         }
 
-        GameObject.FindGameObjectWithTag("Player").transform.position = respawnPosition;
+        respawnPosition = GameObject.FindGameObjectWithTag("Player").transform.position;
+
     }
 
     public void respawnPlayer()

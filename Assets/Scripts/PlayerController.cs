@@ -71,6 +71,9 @@ public class PlayerController : MonoBehaviour
     {
         rb = GetComponent<Rigidbody2D>();
         //grabTime = new Timer(grabTimeLimit * 1000);
+
+        //Force the Respawn system to function
+        SpawnRespawnHandler.Instance.findRespawn();
     }
 
     // Update is called once per frame
