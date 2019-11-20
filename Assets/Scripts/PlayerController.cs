@@ -47,11 +47,15 @@ public class PlayerController : MonoBehaviour
     private bool dash = true;
     private bool dashing = false;
     private bool wallSliding = false;
-    private bool slide = false; 
+    private bool slide = false;
 
     //private Timer grabTime;
 
 #pragma warning disable 0649
+    [SerializeField]
+    CircleCollider2D normalCollider;
+    [SerializeField]
+    CapsuleCollider2D slidingCollider;
     [SerializeField]
     CapsuleCollider2D feetCollider;
     [SerializeField]
@@ -82,6 +86,8 @@ public class PlayerController : MonoBehaviour
         //Sliding Housekeeping
         if (slide && !((Input.GetButton("Slide") || Input.GetAxis("Vertical") < 0))) {
             slide = false;
+            normalCollider.enabled = true;
+            slidingCollider.enabled = false;
         }
 
         //Stops the wind-up time to movement
@@ -158,6 +164,9 @@ public class PlayerController : MonoBehaviour
             {
                 newVelocity = new Vector2(0, rb.velocity.y);
             }
+
+            normalCollider.enabled = false;
+            slidingCollider.enabled = true;
 
             slide = true;
         }
