@@ -13,11 +13,11 @@ public class DeathHandler : MonoBehaviour
         }
     }
 
-    public void OnTriggerEnter2D(Collider2D collision)
+    /*public void OnTriggerEnter2D(Collider2D collision)
     {
         if (collision.gameObject.tag == "Player")
         {
             SpawnRespawnHandler.Instance.respawnPlayer();
         }
-    }
+    }*/
 }
