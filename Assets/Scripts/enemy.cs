@@ -13,6 +13,7 @@ public class enemy : MonoBehaviour
 
     //No longer used for wall detection b/c we just don't wanna work
     public Transform wallDetector;
+
     public Collider2D feetCollider, bodyCollider, leftWallDetector, rightWallDetector;
 
     bool movingLeft = true;
@@ -74,11 +75,6 @@ public class enemy : MonoBehaviour
     public void playerDetection()
     {
         LayerMask playerD = LayerMask.GetMask("Player");
-        
-        if((player.collider == true))
-        {
-            rigid.velocity = new Vector2(rigid.velocity.x, jumpHeight);
-        }
 
         if (movingLeft)
         {
@@ -88,6 +84,11 @@ public class enemy : MonoBehaviour
         else if (movingRight)
         {
             player = Physics2D.Raycast(wallDetector.position, Vector2.right, playerDetectionDistance, playerD);
+        }
+
+        if ((player.collider == true))
+        {
+            rigid.velocity = new Vector2(rigid.velocity.x, jumpHeight);
         }
 
     }
