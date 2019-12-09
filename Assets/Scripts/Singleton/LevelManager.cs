@@ -11,6 +11,8 @@ public class LevelManager : Singleton<LevelManager>
 {
     public string lastScene { get; private set; }
 
+    public Animator anim;
+
     public void switchScene(string switchTo)
     {
         lastScene = SceneManager.GetActiveScene().name;

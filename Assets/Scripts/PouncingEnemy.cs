@@ -107,13 +107,18 @@ public class PouncingEnemy : MonoBehaviour
             player = Physics2D.Raycast(wallDetector.position, Vector2.right, playerDetectionDistance, playerD);
         }
 
-        if (!pouncing && (player.collider == true))
+        if (!pouncing && (player.collider == true) && checkPounce())
         {
             pouncing = true;
 
             rigid.velocity = new Vector2(rigid.velocity.x, jumpHeight);
         }
 
+    }
+
+    public bool checkPounce()
+    {
+        return !(Physics2D.Linecast(new Vector2(rigid.position.x, rigid.position.y + GetComponent<CircleCollider2D>().radius), new Vector2(rigid.position.x+(-player.distance), rigid.position.y+jumpHeight), LayerMask.GetMask("Terrain")));
     }
 
     //Sends ray from gameobject child of enemy to detect for walls

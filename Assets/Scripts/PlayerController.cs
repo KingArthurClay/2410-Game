@@ -9,19 +9,23 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    [Header("Basic Movement")]
     public float moveSpeed = 5;
     public float topMoveSpeed = 100;
     public float startBoost;
     public float boostPoint = 1;
 
+    [Header("Dashing")]
     public float dashSpeed;
     public float dashDrag;
     public float dashBleedOff = 10f;
 
+    [Header("Friction")]
     public float movingFriction = 1f;
     public float stoppingFriction = 1f;
     public float slidingFriction = 0.45f;
 
+    [Header("'Fun' Stuff")]
     [Range(0, 1)]
     public float lerpHorizontalMovement = 0.6f;
 
@@ -31,29 +35,34 @@ public class PlayerController : MonoBehaviour
     [Range(1, 7)]
     public float wallKickVerticalVelocity;
     public float wallKickHorizontalVelocity;
-    [Range(0, 5)]
-    public float wallKickCarryOver = 2.5f;
+    public float jumpDelay;
     // In Seconds
     //public float grabTimeLimit;
 
+    [Header("Gravity")]
     // Causes the more snappy feeling of falling
     // Increase Gravity when Falling
     public float fallMultiplier = 2.5f;
     // Shortens a jump from a shorter input
     public float lowJumpMultiplier = 2.0f;
-    // Makes WallSliding Slower
-    public float wallSlideMultiplier = .25f;
+    public float wallSlideMultiplier = .24f;
 
-    private bool dash = true;
+    public bool dash = true;
+
     private bool dashing = false;
     private bool wallSliding = false;
     private bool slide = false;
+    private bool canJump = true;
+
+    private Animator anim;
+
+    private SpriteRenderer sprite;
 
     //private Timer grabTime;
 
 #pragma warning disable 0649
     [SerializeField]
-    CircleCollider2D normalCollider;
+    Collider2D normalCollider;
     [SerializeField]
     CapsuleCollider2D slidingCollider;
     [SerializeField]
@@ -74,6 +83,9 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+
+        sprite = GetComponent<SpriteRenderer>();
         //grabTime = new Timer(grabTimeLimit * 1000);
 
         //Force the Respawn system to function
@@ -83,11 +95,24 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
+        bool wallJump = false;
+
+        if (rb.velocity.x < 0)
+        {
+            sprite.flipX = true;
+        }
+        else if (rb.velocity.x > 0)
+        {
+            sprite.flipX = false;
+        }
+
         //Sliding Housekeeping
         if (slide && !((Input.GetButton("Slide") || Input.GetAxis("Vertical") < 0))) {
             slide = false;
+
             normalCollider.enabled = true;
-            slidingCollider.enabled = false;
+
+            anim.Play("PlayerIdle");
         }
 
         //Stops the wind-up time to movement
@@ -101,14 +126,25 @@ public class PlayerController : MonoBehaviour
             newVelocity = new Vector2(Input.GetAxis("Horizontal") * moveSpeed * Time.fixedDeltaTime + (Mathf.Sign(Input.GetAxis("Horizontal")) * startBoost), rb.velocity.y);
         }
 
+        if (rb.velocity.magnitude == 0)
+        {
+            anim.Play("PlayerIdle");
+        }
+        else if (rb.velocity.y == 0)
+        {
+            anim.Play("PlayerRun");
+        }
+
         //Resets the dash
         if (feetCollider.IsTouchingLayers())
         {
             dash = true;
         }
 
-        if (Input.GetButtonDown("Jump") && feetCollider.IsTouchingLayers())
+        if (canJump && Input.GetButtonDown("Jump") && feetCollider.IsTouchingLayers())
         {   //Jumping
+
+            anim.Play("PlayerJump");
 
             newVelocity = new Vector2(newVelocity.x, 0);
             newVelocity += Vector2.up * jumpVelocity;
@@ -118,11 +154,15 @@ public class PlayerController : MonoBehaviour
             dash = false;
             dashing = true;
 
+            anim.Play("PlayerDash");
+
             newVelocity += new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized * dashSpeed;
             rb.drag = dashDrag;
         }
-        else if (Input.GetButtonDown("Jump") && leftWallKick.IsTouchingLayers())
+        else if (canJump && Input.GetButtonDown("Jump") && leftWallKick.IsTouchingLayers())
         {   //Wall Kicks to the Right
+            Debug.Log(newVelocity);
+
             if (wallSliding)
             {
                 //Debug.Log("Jumped off to the right");
@@ -132,18 +172,33 @@ public class PlayerController : MonoBehaviour
             {
                 newVelocity = new Vector2(wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
             }
+
+            Debug.Log(newVelocity);
+            wallSliding = false;
+            anim.Play("PlayerJump");
+
+            wallJump = true;
+            
+            StartCoroutine(JumpDelay());
         }
-        else if (Input.GetButtonDown("Jump") && rightWallKick.IsTouchingLayers())
+        else if (canJump && Input.GetButtonDown("Jump") && rightWallKick.IsTouchingLayers())
         {   //Wall Kicks to the Left
+            
             if (wallSliding)
             {
                 //Debug.Log("Jumped off to the left");
                 newVelocity = new Vector2(-wallKickHorizontalVelocity, wallKickVerticalVelocity);
+                
             }
             else
             {
                 newVelocity = new Vector2(-wallKickHorizontalVelocity, newVelocity.y + wallKickVerticalVelocity);
             }
+
+            wallSliding = false;
+            anim.Play("PlayerJump");
+            wallJump = true;
+            StartCoroutine(JumpDelay());
         }
         else if ((Input.GetButton("Slide") || Input.GetAxis("Vertical") < 0) && Mathf.Abs(rb.velocity.x) > 1)
         {   //Sliding
@@ -164,11 +219,12 @@ public class PlayerController : MonoBehaviour
             {
                 newVelocity = new Vector2(0, rb.velocity.y);
             }
-
+            
             normalCollider.enabled = false;
-            slidingCollider.enabled = true;
 
             slide = true;
+
+            anim.Play("PlayerSlide");
         }
         else if (!slide && !wallSliding && leftGrab.IsTouchingLayers() || rightGrab.IsTouchingLayers()) //No wallSlide if the player is sliding
         {   //Wall Sliding
@@ -178,20 +234,25 @@ public class PlayerController : MonoBehaviour
             {
                 //Debug.Log("WallSliding");
                 newVelocity.y = 0;
+                newVelocity.x = 0;
                 wallSliding = true;
             }
             else if (rightGrab.IsTouchingLayers() && Input.GetAxis("Horizontal") > 0)
             {
                 //Debug.Log("WallSliding");
                 newVelocity.y = 0;
+                newVelocity.x = 0;
                 wallSliding = true;
             }
         }
 
+        if (wallJump) Debug.Log(newVelocity);
         //If we're falling, add fallMultiplier to gravity
         if (!wallSliding && newVelocity.y < 0)
         {
             newVelocity += Vector2.up * Physics2D.gravity.y * (fallMultiplier - 1) * Time.fixedDeltaTime;
+
+            anim.Play("PlayerFall");
         } //If we've stopped holding the button, increase gravity
         else if (!wallSliding && newVelocity.y > 0 && !Input.GetButton("Jump"))
         {
@@ -199,7 +260,10 @@ public class PlayerController : MonoBehaviour
         }
         else if (wallSliding)
         {   //If we'er wallSliding, act like it
+            //anim.Play("PlayerWallSlide");
+
             newVelocity += Vector2.up * Physics2D.gravity.y * wallSlideMultiplier * Time.fixedDeltaTime;
+            
         }
         else
         { //'Cause Unity won't do it for us
@@ -225,7 +289,7 @@ public class PlayerController : MonoBehaviour
         {
             //Friction Calculations
             float xWFriction = 0f;
-            if (rb.velocity.x < topMoveSpeed || rb.velocity.x > -topMoveSpeed) { //If we're not going to exceed our top move speed
+            if (wallJump || rb.velocity.x <= topMoveSpeed || rb.velocity.x >= -topMoveSpeed) { //If we're not going to exceed our top move speed
                 if (rb.velocity.x + newVelocity.x > 0)
                 {
                     if (rb.velocity.x + newVelocity.x - movingFriction > 0)
@@ -262,7 +326,7 @@ public class PlayerController : MonoBehaviour
             xWFriction = Mathf.Sign(xWFriction) * Mathf.Min(Mathf.Abs(xWFriction), topMoveSpeed);
 
             //Final Movement Calculations
-            rb.velocity = new Vector2(xWFriction, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y) /*+ movementumTracking*/;
+            rb.velocity = new Vector2(xWFriction, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y);
         }
         else if (!slide) //Stopped Friction Calculations
         {
@@ -275,11 +339,16 @@ public class PlayerController : MonoBehaviour
               ////Debug.Log("Applied Stopping Friction: " + Time.fixedTime);
                 xWFriction -= Mathf.Sign(xWFriction) * stoppingFriction;
             }
+            else if (wallJump)
+            {
+                xWFriction = newVelocity.x;
+            }
 
             xWFriction = Mathf.Sign(xWFriction) * Mathf.Min(Mathf.Abs(xWFriction), topMoveSpeed);
 
             //Final Movement Calculations
-            rb.velocity = new Vector2(xWFriction, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y) /*+ movementumTracking*/;
+            rb.velocity = new Vector2(xWFriction, rb.velocity.y * Time.fixedDeltaTime + newVelocity.y);
+            if (wallJump) Debug.Log("Stopped "+rb.velocity);
         }
         
         //Housekeeping check to make sure wallsliding doesn't happen forever
@@ -291,26 +360,18 @@ public class PlayerController : MonoBehaviour
 
     }
 
-    private Vector2 jump(Vector2 newVelocity)
+    IEnumerator JumpDelay()
     {
-        newVelocity = new Vector2(newVelocity.x, 0);
-        newVelocity += Vector2.up * jumpVelocity;
+        canJump = false;
 
-        return newVelocity;
+        yield return new WaitForSeconds(jumpDelay);
+
+        canJump = true;
     }
 
-    private Vector2 wallKick(Vector2 newVelocity, bool left)
+    public Collider2D getCollider()
     {
-        if (left)
-        {
-            newVelocity += new Vector2(wallKickHorizontalVelocity, wallKickVerticalVelocity);
-        }
-        else
-        {
-            newVelocity += new Vector2(wallKickHorizontalVelocity, wallKickVerticalVelocity);
-        }
-
-        return newVelocity;
+        return normalCollider;
     }
 
 }
