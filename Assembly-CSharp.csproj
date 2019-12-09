@@ -66,6 +66,7 @@
     <Compile Include="Assets\Scripts\DashColorer.cs" />
     <Compile Include="Assets\Scripts\DeathHandler.cs" />
     <Compile Include="Assets\Scripts\fadeScript.cs" />
+    <Compile Include="Assets\Scripts\InGameText.cs" />
     <Compile Include="Assets\Scripts\LevelTransition.cs" />
     <Compile Include="Assets\Scripts\PlayerController.cs" />
     <Compile Include="Assets\Scripts\PouncingEnemy.cs" />
