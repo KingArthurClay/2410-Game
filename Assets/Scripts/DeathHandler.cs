@@ -17,8 +17,6 @@ public class DeathHandler : MonoBehaviour
         if (collision.gameObject.tag == "Player")
         {
             anim.Play("playerDeath");
-
-            SpawnRespawnHandler.Instance.respawnPlayer();
         }
     }
 

@@ -10,4 +10,9 @@ public class fadeScript : MonoBehaviour
     {
         LevelManager.Instance.switchScene(currentTarget);
     }
+
+    public void respawnPlayer()
+    {
+        SpawnRespawnHandler.Instance.respawnPlayer();
+    }
 }
