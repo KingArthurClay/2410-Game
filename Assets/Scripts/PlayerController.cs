@@ -126,22 +126,22 @@ public class PlayerController : MonoBehaviour
             newVelocity = new Vector2(Input.GetAxis("Horizontal") * moveSpeed * Time.fixedDeltaTime + (Mathf.Sign(Input.GetAxis("Horizontal")) * startBoost), rb.velocity.y);
         }
 
-        if (rb.velocity.magnitude == 0)
+        if (!slide  && rb.velocity.magnitude == 0)
         {
             anim.Play("PlayerIdle");
         }
-        else if (rb.velocity.y == 0)
+        else if (!slide && rb.velocity.y == 0)
         {
-            anim.Play("PlayerRun");
+            anim.Play("PlayerRunNew");
         }
 
         //Resets the dash
-        if (feetCollider.IsTouchingLayers())
+        if (feetCollider.IsTouchingLayers(LayerMask.GetMask("Terrain")))
         {
             dash = true;
         }
 
-        if (canJump && Input.GetButtonDown("Jump") && feetCollider.IsTouchingLayers())
+        if (canJump && Input.GetButtonDown("Jump") && feetCollider.IsTouchingLayers(LayerMask.GetMask("Terrain")))
         {   //Jumping
 
             anim.Play("PlayerJump");
@@ -159,7 +159,7 @@ public class PlayerController : MonoBehaviour
             newVelocity += new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical")).normalized * dashSpeed;
             rb.drag = dashDrag;
         }
-        else if (canJump && Input.GetButtonDown("Jump") && leftWallKick.IsTouchingLayers())
+        else if (canJump && Input.GetButtonDown("Jump") && leftWallKick.IsTouchingLayers(LayerMask.GetMask("Terrain")))
         {   //Wall Kicks to the Right
             Debug.Log(newVelocity);
 
@@ -181,7 +181,7 @@ public class PlayerController : MonoBehaviour
             
             StartCoroutine(JumpDelay());
         }
-        else if (canJump && Input.GetButtonDown("Jump") && rightWallKick.IsTouchingLayers())
+        else if (canJump && Input.GetButtonDown("Jump") && rightWallKick.IsTouchingLayers(LayerMask.GetMask("Terrain")))
         {   //Wall Kicks to the Left
             
             if (wallSliding)
@@ -211,7 +211,7 @@ public class PlayerController : MonoBehaviour
             }
 
             //Slide disables normal input
-            if (feetCollider.IsTouchingLayers())
+            if (feetCollider.IsTouchingLayers(LayerMask.GetMask("Terrain")))
             {
                 newVelocity = new Vector2(-Mathf.Sign(rb.velocity.x) * slidingFriction, rb.velocity.y);
             }
@@ -226,23 +226,28 @@ public class PlayerController : MonoBehaviour
 
             anim.Play("PlayerSlide");
         }
-        else if (!slide && !wallSliding && leftGrab.IsTouchingLayers() || rightGrab.IsTouchingLayers()) //No wallSlide if the player is sliding
+
+        if (!slide && leftGrab.IsTouchingLayers(LayerMask.GetMask("Terrain")) || rightGrab.IsTouchingLayers(LayerMask.GetMask("Terrain"))) //No wallSlide if the player is sliding
         {   //Wall Sliding
 
             //We Only want to slide on a wall if the player pushes against it
-            if (leftGrab.IsTouchingLayers() && Input.GetAxis("Horizontal") < 0)
+            if (leftGrab.IsTouchingLayers(LayerMask.GetMask("Terrain")) && Input.GetAxis("Horizontal") < 0)
             {
-                //Debug.Log("WallSliding");
+                anim.Play("PlayerClimb");
                 newVelocity.y = 0;
                 newVelocity.x = 0;
                 wallSliding = true;
+
+                sprite.flipX = true;
             }
-            else if (rightGrab.IsTouchingLayers() && Input.GetAxis("Horizontal") > 0)
+            else if (rightGrab.IsTouchingLayers(LayerMask.GetMask("Terrain")) && Input.GetAxis("Horizontal") > 0)
             {
-                //Debug.Log("WallSliding");
+                anim.Play("PlayerClimb");
                 newVelocity.y = 0;
                 newVelocity.x = 0;
                 wallSliding = true;
+
+                sprite.flipX = false;
             }
         }
 
@@ -352,7 +357,7 @@ public class PlayerController : MonoBehaviour
         }
         
         //Housekeeping check to make sure wallsliding doesn't happen forever
-        if (wallSliding && !leftGrab.IsTouchingLayers() && !rightGrab.IsTouchingLayers())
+        if (wallSliding && !leftGrab.IsTouchingLayers(LayerMask.GetMask("Terrain")) && !rightGrab.IsTouchingLayers(LayerMask.GetMask("Terrain")))
         {
             //Debug.Log("Not Wallsliding!");
             wallSliding = false;
@@ -373,5 +378,5 @@ public class PlayerController : MonoBehaviour
     {
         return normalCollider;
     }
-
+    
 }

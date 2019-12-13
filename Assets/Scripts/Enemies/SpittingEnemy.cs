@@ -12,10 +12,13 @@ public class SpittingEnemy : MonoBehaviour
     public float accuracy = 0.01f;
 
     public GameObject spitPrefab;
+    public Transform spitLocation;
 
     private Rigidbody2D rb;
     private GameObject player;
     private Rigidbody2D playerRB;
+    private Animator anim;
+    private SpriteRenderer sprite;
 
     private bool canSpit = true;
 
@@ -25,12 +28,23 @@ public class SpittingEnemy : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         player = GameObject.FindGameObjectWithTag("Player");
         playerRB = player.GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+        sprite = GetComponent<SpriteRenderer>();
     }
 
     // Update is called once per frame
     void FixedUpdate()
     {
         rb.AddForce(new Vector2(moveCheck() * (movementSpeed * Time.fixedDeltaTime), 0));
+
+        if (moveCheck() > 0)
+        {
+            sprite.flipX = true;
+        }
+        else
+        {
+            sprite.flipX = false;
+        }
 
         spit();
     }
@@ -40,9 +54,11 @@ public class SpittingEnemy : MonoBehaviour
         if (canSpit && playerCheck())
         {
             
-            GameObject projectile = Instantiate(spitPrefab, rb.position, Quaternion.Euler(0, 0, 90));
+            GameObject projectile = Instantiate(spitPrefab, spitLocation.position, Quaternion.Euler(0, 0, 90));
 
             projectile.GetComponent<Rigidbody2D>().AddForce(new Vector2(0, spitVelocity));
+
+            anim.Play("EnemySpitting");
 
             StartCoroutine("spitTimer");
 
@@ -59,8 +75,9 @@ public class SpittingEnemy : MonoBehaviour
         }
         else
         {
-            return (int) Mathf.Sign(xTarget);
+            return (int)Mathf.Sign(xTarget);
         }
+
     }
 
     bool playerCheck()
