@@ -73,9 +73,6 @@ public class SpittingEnemy : MonoBehaviour
 
         if (xClosure > 0 && Mathf.Abs(xClosure % yClosure) < accuracy * xClosure)
         {
-            Debug.Log(xClosure + " " + yClosure);
-            Debug.Log(Mathf.Abs(xClosure % yClosure) + " " + accuracy * xClosure);
-
             return true;
         }
 
