@@ -17,6 +17,8 @@ public class LevelManager : Singleton<LevelManager>
     {
         lastScene = SceneManager.GetActiveScene().name;
 
+        AssetBundle.LoadFromFile(System.IO.Path.Combine(Application.streamingAssetsPath, "switchTo"));
+
         SceneManager.LoadScene(switchTo);
 
         SpawnRespawnHandler.Instance.findRespawn();
